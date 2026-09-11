@@ -1,0 +1,167 @@
+🎯 MISSÃO
+A EscolaTech contratou consultoria de vocês para auditar a API do sistema escolar. Todos os endpoints abaixo FUNCIONAM e estão em produção — mas o tempo novo se recusa a mexer neles. Para endpoint CADA:
+
+Identifiquem o(s) problema(s) de design (pode haver mais de um!)
+Proponham o redesenho: método HTTP + rota + códigos de status corretos
+⏱️ Tempo: 25 minutos | 👥 Formato: em duplas | Dica: se a rota conta o que faz em português, algo está errado.
+
+Nomes: Isaura Cássia Turma: GNP0547/3001 Dados: ___ / ___ / ______
+
+ENDPOINT 01 — POST /api/getAlunos
+Documentação atual (extraída do wiki da EscolaTech):
+
+POST /api/getAlunos
+Retorna TODOS os alunos cadastrados (hoje: 12.482 registros).
+Resposta: 200 OK + array JSON completo (~9 MB).
+Obs. da wiki: "usar POST porque GET não estava funcionando".
+Qual(is) problema(s) de design vocês identificam?
+- Está usando POST para uma operação de consulta, quando o correto é utilizar GET.
+- O nome da rota descreve uma ação (getAlunos) em vez de representar um recurso.
+- A API retorna mais de 12 mil alunos de uma só vez, gerando uma resposta muito grande. O ideal é utilizar paginação.
+Seu redesenho (método + rotação + códigos de status):
+Método: GET
+Rota: GET /api/alunos
+Código de sucesso: 200 OK
+Também pode utilizar paginação:
+GET /api/alunos?page=1&limit=50
+
+ENDPOINT 02 — GET /deletarAluno?id=7
+Documentação atual (extraída do wiki da EscolaTech):
+
+GET /deletarAluno?id=7
+Remove o aluno do banco de dados.
+Resposta: 200 OK + "OK" (mesmo se o aluno não existir).
+Obs. da wiki: "dá pra deletar pelo navegador, bem prático".
+Qual(is) problema(s) de design vocês identificam?
+- Está usando GET para excluir um aluno, o que é incorreto.
+- A rota descreve uma ação (deletarAluno) em vez de representar um recurso.
+- Retorna 200 OK mesmo quando o aluno não existe.
+- Uma operação de exclusão não deve ser realizada simplesmente acessando uma URL pelo navegador.
+Seu redesenho (método + rotação + códigos de status):
+Método: DELETE
+Rota: DELETE /api/alunos/7
+Códigos de status:
+* 204 No Content → aluno excluído com sucesso.
+* 404 Not Found → aluno não existe.
+
+ENDPOINT 03 — POST /api/alunos (criação)
+Documentação atual (extraída do wiki da EscolaTech):
+
+POST /api/alunos
+Body: { "nome": "...", "curso": "..." }
+Cria o aluno e responde: 200 OK + body "OK".
+O app precisa buscar a lista inteira de novo para descobrir o ID gerado.
+Qual(is) problema(s) de design vocês identificam?
+- O método POST está correto para criação, porém 200 OK não é o código mais adequado.
+- A API retorna apenas "OK" e não informa o ID gerado.
+- O aplicativo precisa buscar a lista inteira novamente para descobrir o ID, gerando uma requisição desnecessária.
+Seu redesenho (método + rotação + códigos de status):
+Método: POST
+Rota: POST /api/alunos
+Body:
+{
+  "nome": "...",
+  "curso": "..."
+}
+
+Código de sucesso: 201 Created
+
+A API deve retornar o aluno criado, incluindo seu ID:
+
+{
+  "id": 25,
+  "nome": "...",
+  "curso": "..."
+}
+
+Também pode informar a localização do recurso criado:
+Location: /api/alunos/25
+
+ENDPOINT 04 — GET /escolas/1/turmas/3/alunos/25/matriculas/88/disciplinas/12
+Documentação atual (extraída do wiki da EscolaTech):
+
+GET /escolas/1/turmas/3/alunos/25/matriculas/88/disciplinas/12
+Retorna os dados da disciplina 12 da matrícula 88.
+Para montar a URL o app precisa conhecer 5 IDs diferentes.
+Resposta: 200 OK + JSON da disciplina.
+Qual(is) problema(s) de design vocês identificam?
+- A URL está excessivamente longa e acoplada.
+- Para acessar uma disciplina, o aplicativo precisa conhecer vários IDs que não são necessários para realizar a consulta.
+- A rota possui uma hierarquia muito grande, dificultando o uso e aumentando o acoplamento entre os recursos.
+Seu redesenho (método + rotação + códigos de status):
+Método: GET
+Nova rota: GET /api/matriculas/88/disciplinas/12
+Código de sucesso:200 OK
+Se a matrícula ou a disciplina não existir: 404 Not Found
+* Essa solução mantém a relação entre matrícula e disciplina, mas elimina a necessidade de informar escola, turma e aluno na URL.
+
+ENDPOINT 05 — GET /api/alunos/7/matriculas (erro)
+Documentação atual (extraída do wiki da EscolaTech):
+
+GET /api/alunos/7/matriculas
+Se o aluno 7 não existe, responde:
+200 OK + "<html><b>Erro: aluno nao existe!</b></html>"
+O app mobile quebra tentando fazer parse do JSON.
+Qual(is) problema(s) de design vocês identificam?
+- Quando o aluno não existe, a API retorna 200 OK, mesmo sendo uma situação de erro.
+- O erro é retornado em HTML, enquanto o aplicativo espera JSON.
+- O aplicativo mobile quebra porque não consegue interpretar o HTML como JSON.
+Seu redesenho (método + rotação + códigos de status):
+Método: GET
+Rota: GET /api/alunos/7/matriculas
+Se o aluno existir: 200 OK
+Se o aluno não existir: 404 Not Found
+A resposta de erro deve ser JSON, por exemplo:
+{
+  "erro": "Aluno não encontrado"
+}
+
+ENDPOINT 06 — PUT /api/atualizarNotaParcial?aluno=7&disc=12¬a=8.5
+Documentação atual (extraída do wiki da EscolaTech):
+
+PUT /api/atualizarNotaParcial?aluno=7&disc=12&nota=8.5
+Atualiza SÓ a nota parcial da disciplina, sem body.
+Todos os dados vão na query string.
+Resposta: 200 OK + "OK".
+
+Qual(is) problema(s) de design vocês identificam?
+- A rota descreve uma ação (atualizarNotaParcial) em vez de representar um recurso.
+- Os dados da alteração estão todos na query string, quando deveriam estar no body.
+- A rota não representa claramente o relacionamento entre aluno, disciplina e nota.
+- Retornar apenas "OK" não informa qual recurso foi atualizado.
+Seu redesenho (método + rotação + códigos de status):
+Método: PUT
+Nova rota: PUT /api/alunos/7/disciplinas/12/nota
+Body:
+{
+  "nota": 8.5
+}
+Código de sucesso: 200 OK
+Exemplo de resposta:
+{
+  "aluno": 7,
+  "disciplina": 12,
+  "nota": 8.5
+}
+
+Se o aluno ou a disciplina não existir: 404 Not Found
+
+DESAFIO
+A EscolaTech quer lançar mudanças na API sem quebrar o app mobile antigo, que não recebe atualização há 2 anos. 
+Que decisão de design — que falta na API INTEIRA — resolve esse problema? Como ficariam as rotas?
+A API precisa adotar versionamento de API. Isso permite lançar uma nova versão sem quebrar o aplicativo mobile antigo, que ainda utiliza a versão anterior.
+As rotas ficariam :
+
+API antiga — v1:
+
+GET    /api/v1/alunos
+GET    /api/v1/alunos/7
+POST   /api/v1/alunos
+DELETE /api/v1/alunos/7
+
+Nova API — v2:
+
+GET    /api/v2/alunos
+GET    /api/v2/alunos/7
+POST   /api/v2/alunos
+DELETE /api/v2/alunos/7

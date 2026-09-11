@@ -1,0 +1,102 @@
+🎯 MISSÃO
+Você é o tempo de arquitetura de dados contratado pelas 4 empresas abaixo. Para cenário CADA:
+
+Escolha o modelo de banco: relacional, documento, chave-valor ou gráfico
+Justifiquem com pelo menos 2 fatores do contexto (estrutura dos dados, padrão de acesso, escala, consistência...)
+Apontem o principal risco da escolha de vocês
+⏱️ Tempo: 25 minutos | 👥 Formato: em duplas | Não existe resposta única — o que vale é uma justificativa.
+
+Nomes: Isaura Cássia Turma: GNP0547/3001 Dados: ___ / ___ / ______
+
+CENÁRIO 01 — TechStore — o catálogo camaleão
+E-commerce com 80 mil produtos. Cada categoria tem atributos completamente diferentes: livro tem autor e número de páginas; 
+notebook tem RAM e CPU; camiseta tem tamanho e cor.
+
+A cada categoria nova, o tempo faz ALTER TABLE e a tabela produtos já tem 92 colunas (a maioria NULL)
+O produto é quase sempre lido INTEIRO, de uma vez, para montar a página
+Novos atributos surgem hoje — o marketing não espera o DBA
+Relatórios cruzando categorias são raros
+Sua análise:
+
+Modelo recomendado: ☐ ​​Relacional X Documento ☐ Chave-valor ☐ Grafo
+
+Justificativa (mínimo 2 fatores do contexto):
+- Os produtos possuem atributos muito diferentes entre as categorias, então o modelo de documento permite armazenar estruturas diferentes,
+sem precisar criar várias colunas ou alterar a tabela constantemente.
+- O produto é geralmente lido inteiro de uma vez e o banco de documentos é adequado para armazenar e recuperar todas as informações de um produto em um único documento.
+- Novos atributos podem ser adicionados com facilidade, sem depender de alterações frequentes no esquema do banco.
+
+Principal risco da escolha:
+-O principal risco é a falta de padronização dos dados,pois documentos diferentes podem possuir estruturas diferentes.
+Isso pode dificultar relatórios e consultas que precisem cruzar muitas categorias.
+
+CENÁRIO 02 — MegaCart — o carrinho da Black Friday
+Serviço de carrinho de compras de um varejista gigante. Na Black Friday são milhões de leituras e escritas por minuto.
+
+O acesso é SEMPRE pela chave: “carrinho do cliente 12345” — nunca por busca ou filtro
+Todo carrinho expira automaticamente em 48h (TTL)
+Latência precisa ser de poucos milissegundos
+Perder um carrinho é chato, mas NÃO é tragédia — o cliente remonta
+Sua análise:
+
+Modelo recomendado: ☐ ​​Relacional ☐ Documento X Chave-valor ☐ Grafo
+
+Justificativa (mínimo 2 fatores do contexto):
+- O carrinho é acessado sempre por uma chave específica, como o ID do cliente, que é exatamente o padrão de acesso ideal para um banco chave-valor.
+- São necessários milhões de leituras e escritas por minuto, portanto é importante ter alta velocidade e baixa latência.
+- O carrinho possui expiração automática em 48 horas (TTL), recurso muito adequado para esse tipo de banco.
+- Como perder o carrinho não representa uma grande tragédia, é possível aceitar uma maior tolerância a falhas.
+
+Principal risco da escolha:
+-O principal risco é a dificuldade para realizar consultas mais complexas, principalmente se futuramente for 
+necessário buscar ou cruzar informações usando outros critérios além da chave.
+
+CENÁRIO 03 — PayBank — dinheiro não pode evaporar
+Módulo de transferências de um banco. Uma transferência de débito uma conta e crédito outra — as duas operações têm que acontecer JUNTAS ou não acontece.
+
+Consistência forte consistente por lei — saldo errado é multa do Banco Central
+Auditoria cruza contas, clientes, agências e transações em relatórios complexos (joins)
+O esquema dos dados é estável há 10 anos
+Volume alto, mas previsível
+Sua análise:
+
+Modelo recomendado: X ​​Relacional ☐ Documento ☐ Chave-valor ☐ Grafo
+
+Justificativa (mínimo 2 fatores do contexto):
+- A transferência precisa realizar débito e crédito juntos ou nenhuma das operações, o que exige transações e forte consistência,
+características muito importantes em bancos relacionais.
+- A auditoria precisa realizar joins entre contas, clientes, agências e transações, algo que o modelo relacional atende muito bem.
+- O esquema é estável há muitos anos, portanto não existe a necessidade de uma estrutura extremamente flexível.
+- Como os dados financeiros precisam estar corretos, a consistência é mais importante do que uma flexibilidade maior do esquema.
+
+Principal risco da escolha:
+- O principal risco é que o banco relacional pode ter maior dificuldade para escalar horizontalmente quando o volume de dados e transações crescer muito.
+
+CENÁRIO 04 — FriendLink — amigos dos seus amigos
+A rede social profissional em que o produto principal é a indicação: “pessoas que você talvez conheça” e “quem pode te apresentar na empresa X”.
+
+As consultas dominantes percorrem RELACIONAMENTOS: amigos dos amigos, caminhos de indicação com até 6 níveis
+No banco relacional, cada nível vira um self-join — com 6 níveis a consulta já não responde
+Os dados de perfil são simples; o valor está nas CONEXÕES
+O gráfico cresce milhões de arestas por dia
+Sua análise:
+
+Modelo recomendado: ☐ ​​Relacional ☐ Documento ☐ Chave-valor X Grafo
+
+Justificativa (mínimo 2 fatores do contexto):
+-O principal valor do sistema está nas conexões entre as pessoas, e bancos de grafos são desenvolvidos justamente para representar relacionamentos.
+- As consultas percorrem vários níveis de relacionamento, como amigos dos amigos e caminhos de indicação de até 6 níveis, algo muito mais natural em um banco de grafos.
+- No modelo relacional, essas consultas exigiriam vários self-joins, tornando as consultas complexas e potencialmente mais lentas.
+- O crescimento de milhões de arestas por dia favorece uma estrutura especializada em relacionamentos.
+Principal risco da escolha:
+- O principal risco é a complexidade de escalar e administrar o banco de grafos quando a quantidade de usuários e conexões crescer muito.
+
+DESAFIO
+Escolha um dos cenários e responda: se a rede particionar (metade dos servidores não enxerga a outra metade),
+o que o sistema deve fazer — parar de responder para não errar, ou continuar respondendo mesmo arriscando dados desatualizados? 
+Qual letra do CAP vocês sacrificariam e por quê?
+* Cenario que foi escolhido: PayBack
+- Se a rede particionar, o sistema deve parar de responder às operações que não puder garantir com consistência, pois estamos tratando de dinheiro, nesse caso,
+sacrificamos a Disponibilidade (A) para preservar a Consistência (C). Isso irá acontecer porque é melhor o sistema ficar temporariamente indisponível 
+do que permitir uma transferência com informações desatualizadas ou realizar apenas o débito ou apenas o crédito.
+- A prioridade é garantir que o saldo e as transferências permaneçam corretos, mesmo que o sistema precise ficar temporariamente indisponível durante uma partição.

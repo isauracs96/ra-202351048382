@@ -1,0 +1,103 @@
+🎯 MISSÃO
+Vocês são a dupla de revisores de segurança da empresa. Os 4 trechos abaixo são da API MESMA, prontos para ir para produção. Para cartão CADA:
+
+Descrevam a falha com as próprias palavras (não precisa do nome técnico ainda)
+Estime o dano possível se isso chegar à produção
+Proponham a correção
+⏱️ Tempo: 30 minutos | 👥 Formato: em duplas | Todo o código é fictício e roda apenas no laboratório.
+
+Nomes: Isaura Cássia Turma: GNP0547/3001 Dados: 17 / 09 / 2026
+
+VULNERABILIDADE 01 — A busca de clientes
+GET /api/clientes/buscar?nome=...
+
+Endpoint de busca usado pela tela de atendimento. O parâmetro vem direto da caixa de busca do site.
+
+ 1  [HttpGet("buscar")]
+ 2  public IActionResult Buscar(string nome)
+ 3  {
+ 4      var sql = "SELECT * FROM Clientes WHERE Nome = '"
+ 5                + nome + "'";
+ 6      var clientes = _db.Clientes.FromSqlRaw(sql).ToList();
+ 7      return Ok(clientes);
+ 8  }
+Sua análise:
+
+Qual é a falha?
+- O sistema coloca diretamente o que o usuário digita dentro do comando SQL.
+Com isso, uma pessoa mal-intencionada pode inserir comandos no campo de busca e modificar a consulta ao banco de dados.
+Qual o dano possível na produção?
+- Pode acontecer acesso indevido aos dados dos clientes, além da possibilidade de consultar, alterar ou apagar informações do banco, dependendo das permissões.
+Como corrigir?
+- Deve-se utilizar uma consulta com parâmetros, evitando colocar diretamente o texto digitado pelo usuário dentro do comando SQL.
+VULNERABILIDADE 02 — Consulta de faturas
+GET /api/faturas/{id}
+
+Endpoint usado pelo app para exibir a fatura do cartão. O usuário é autenticado quando chama esta rota.
+
+ 1  [HttpGet("{id}")]
+ 2  public IActionResult GetFatura(int id)
+ 3  {
+ 4      var fatura = _db.Faturas.Find(id);
+ 5      if (fatura == null) return NotFound();
+ 6      return Ok(fatura);
+ 7  }
+Sua análise:
+Qual é a falha?
+- O sistema verifica apenas se a fatura existe, mas não verifica se ela pertence ao usuário que está fazendo a consulta.
+Qual o dano possível na produção?
+- Um usuário poderia descobrir o ID de uma fatura de outra pessoa e conseguir visualizar informações financeiras e pessoais que não deveria acessar.
+Como corrigir?
+- O sistema deve verificar se a fatura pertence ao usuário autenticado antes de mostrar os dados. A consulta deve considerar tanto o ID da fatura quanto o ID do usuário.
+VULNERABILIDADE 03 — A configuração do servidor
+Program.cs (roda igual em dev e em produção)
+
+Trecho de inicialização da API, idêntico em todos os ambientes. Este arquivo está versionado no Git da empresa.
+
+ 1  public const string Conn =
+ 2      "Server=prod-db;Database=Banco;User=sa;" +
+ 3      "Password=Newton@2026!";
+ 4
+ 5  var app = WebApplication.CreateBuilder(args).Build();
+ 6  app.UseDeveloperExceptionPage();
+ 7  app.Run();
+Sua análise:
+
+Qual é a falha?
+- A senha do banco de dados está escrita diretamente no código e o arquivo está salvo no Git. Além disso, a página de erros detalhados está ativada em produção.
+Qual o dano possível na produção?
+- Alguém que consiga acesso ao código pode descobrir a senha e tentar acessar o banco de dados.
+Como corrigir?
+- A senha deve ser retirada do código e armazenada de forma segura, como em variáveis de ambiente ou em um gerenciador de senhas.
+VULNERABILIDADE 04 — A atualização do perfil
+PUT /api/usuarios/{id}
+
+Endpoint que o aplicativo chama quando o usuário edita o próprio perfil. O corpo da requisição é o JSON enviado pelo cliente.
+
+ 1  public class UsuarioUpdate
+ 2  {
+ 3      public string Nome  { get; set; }
+ 4      public string Email { get; set; }
+ 5      public string Role  { get; set; }   // "user" | "admin"
+ 6  }
+ 7
+ 8  [HttpPut("{id}")]
+ 9  public IActionResult Atualizar(int id, UsuarioUpdate dto)
+10  {
+11      _repo.AtualizarTudo(id, dto);
+12      return NoContent();
+13  }
+Sua análise:
+
+Qual é a falha?
+- O usuário consegue enviar o campo Role junto com seus dados, como esse campo define se a pessoa é "user" ou "admin", um usuário poderia tentar mudar seu próprio perfil para administrador.
+Qual o dano possível na produção?
+- Um usuário comum poderia conseguir privilégios de administrador e acessar funções ou informações que deveriam ser restritas.
+Como corrigir?
+- O campo Role não deve ser permitido nessa atualização. O usuário deve poder alterar somente dados como nome e e-mail.
+DESAFIO
+Qual das 4 falhas de um scanner automático de código teria MAIS dificuldade de encontrar? Por quê?
+
+- A Vulnerabilidade 02 — Consulta de faturas seria provavelmente a mais difícil de encontrar.
+Isso acontece porque o código funciona normalmente e o problema está na regra de acesso, um scanner consegue identificar mais facilmente problemas como senha, 
+escrita no código ou comandos SQL montados diretamente.
